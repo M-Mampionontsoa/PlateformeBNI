@@ -1,0 +1,173 @@
+/* ==========================================================================
+   Styles partages pour les pages "donnees" du dashboard (Dashboard,
+   Datasets, Exploration, Visualizations) - theme clair, reutilise les
+   tokens --ds-* definis dans dashboardShell.css et les tokens globaux
+   (--accent, --mono, --sans, --red) definis dans index.css.
+   ========================================================================== */
+
+.dp-header { margin-bottom: 24px; }
+.dp-header p {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: var(--ds-ink-soft);
+}
+
+.dp-card {
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border-light);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.dp-grid { display: grid; gap: 16px; }
+.dp-grid-2 { grid-template-columns: 1fr 1fr; }
+.dp-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.dp-grid-auto { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+
+.dp-btn {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--ds-border-light);
+  background: var(--ds-surface);
+  color: var(--ds-ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.dp-btn:hover { border-color: var(--accent); color: var(--accent); }
+.dp-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.dp-btn-primary { background: #eafaf8; border-color: var(--accent); color: #14776e; }
+
+.dp-select {
+  font-family: var(--sans);
+  font-size: 13px;
+  background: var(--ds-surface);
+  color: var(--ds-ink);
+  border: 1px solid var(--ds-border-light);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.dp-pill {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: var(--ds-bg-light);
+  border: 1px solid var(--ds-border-light);
+  color: var(--ds-ink-soft);
+}
+
+/* ---------- ingestion ---------- */
+
+.dp-dropzone {
+  border: 1.5px dashed var(--ds-border-light);
+  border-radius: 12px;
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--ds-ink-soft);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dp-dropzone:hover, .dp-dropzone.drag {
+  border-color: var(--accent);
+  background: #f2fbfa;
+  color: var(--ds-ink);
+}
+.dp-dropzone small { display: block; margin-top: 6px; font-size: 12px; color: var(--ds-ink-soft); }
+
+.dp-job-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 16px;
+  border: 1px solid var(--ds-border-light);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: var(--ds-surface);
+}
+.dp-job-name { font-family: var(--mono); font-size: 12.5px; flex: 1; color: var(--ds-ink); }
+.dp-job-message { font-size: 12px; color: var(--ds-ink-soft); flex: 2; }
+
+.dp-progress-track {
+  width: 130px;
+  height: 6px;
+  background: var(--ds-bg-light);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.dp-progress-fill { height: 100%; background: var(--accent); transition: width 0.3s ease; }
+.dp-progress-fill.failed { background: var(--red); }
+
+.dp-status-badge {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+  width: 92px;
+  text-align: center;
+}
+.dp-status-pending, .dp-status-parsing, .dp-status-validating, .dp-status-storing {
+  background: #fdf3e2; color: #a16a1a;
+}
+.dp-status-completed { background: #e4f8f5; color: #14776e; }
+.dp-status-failed { background: #fbe7ea; color: #b23a4d; }
+
+/* ---------- table ---------- */
+
+.dp-table-scroll {
+  overflow: auto;
+  max-height: 480px;
+  border: 1px solid var(--ds-border-light);
+  border-radius: 10px;
+}
+.dp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dp-table th, .dp-table td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--ds-border-light);
+  white-space: nowrap;
+}
+.dp-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ds-ink-soft);
+  position: sticky;
+  top: 0;
+  background: var(--ds-surface);
+}
+.dp-table td { color: var(--ds-ink-soft); }
+.dp-table tr:hover td { background: var(--ds-bg-light); color: var(--ds-ink); }
+
+.dp-pagination { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 13px; color: var(--ds-ink-soft); }
+
+/* ---------- summary / profiling ---------- */
+
+.dp-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ds-ink-soft); margin-bottom: 4px; }
+.dp-stat-value { font-family: var(--mono); font-size: 22px; color: var(--ds-ink); }
+
+.dp-col-card h4 { margin: 0 0 2px; font-size: 13.5px; font-family: var(--mono); color: var(--ds-ink); }
+.dp-col-card .dp-dtype { color: #14776e; font-size: 11px; margin-bottom: 12px; }
+.dp-metric-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; color: var(--ds-ink-soft); }
+.dp-metric-row span:last-child { color: var(--ds-ink); font-family: var(--mono); }
+.dp-missing-bar { height: 4px; border-radius: 2px; background: var(--ds-bg-light); overflow: hidden; margin-top: 8px; }
+.dp-missing-bar-fill { height: 100%; background: var(--red); }
+
+/* ---------- graph ---------- */
+
+.dp-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--ds-ink-soft); }
+.dp-legend-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+
+/* ---------- generic ---------- */
+
+.dp-empty { color: var(--ds-ink-soft); font-size: 14px; padding: 40px 0; text-align: center; }

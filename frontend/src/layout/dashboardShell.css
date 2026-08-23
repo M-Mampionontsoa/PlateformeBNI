@@ -1,0 +1,394 @@
+/* ==========================================================================
+   Dashboard shell — sidebar sombre + contenu clair (comme la maquette)
+   Réutilise les tokens sombres déjà définis dans index.css (:root) pour la
+   sidebar, et introduit des tokens clairs locaux pour la zone de contenu.
+   ========================================================================== */
+
+.ds-shell {
+  --ds-bg-light: #f6f7fb;
+  --ds-surface: #ffffff;
+  --ds-border-light: #e5e7f2;
+  --ds-ink: #12141c;
+  --ds-ink-soft: #6b7280;
+  /* navy plus profond que --bg-0 global, propre à la sidebar */
+  --ds-sidebar-bg: #0a0e1a;
+  --ds-sidebar-border: #1a2033;
+
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  font-family: var(--sans);
+}
+
+.ds-shell * {
+  box-sizing: border-box;
+}
+
+/* ---------- sidebar ---------- */
+
+.ds-sidebar {
+  width: 264px;
+  flex-shrink: 0;
+  background: var(--ds-sidebar-bg);
+  border-right: 1px solid var(--ds-sidebar-border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.ds-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 20px;
+  border-bottom: 1px solid var(--ds-sidebar-border);
+}
+
+.ds-brand__mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent), #1c4a45);
+  color: var(--bg-0);
+}
+.ds-brand__mark svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ds-brand__text {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.ds-brand__text span {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ds-sidebar__nav {
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ds-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ds-nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.ds-nav-item:hover {
+  background: var(--bg-2);
+  color: var(--text-primary);
+}
+.ds-nav-item.active {
+  background: var(--accent);
+  color: var(--bg-0);
+  font-weight: 600;
+  box-shadow: 0 4px 14px -4px rgba(79, 209, 197, 0.45);
+}
+
+/* ---------- decorative illustration ---------- */
+/* Cubes isométriques + réseau de points, dans l'espace vide entre la nav
+   et la carte utilisateur — écho visuel du "data warehouse" plutôt qu'un
+   visuel générique. */
+
+.ds-sidebar__illustration {
+  flex: 1;
+  min-height: 120px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 0 8px 4px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+.ds-sidebar__illustration svg {
+  width: 100%;
+  height: auto;
+}
+
+.ds-sidebar__footer {
+  position: relative;
+  padding: 12px;
+  border-top: 1px solid var(--ds-sidebar-border);
+}
+
+.ds-user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary);
+}
+.ds-user-card:hover {
+  background: var(--bg-2);
+}
+
+.ds-user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1.5px solid var(--accent);
+}
+
+.ds-user-card__meta {
+  flex: 1;
+  min-width: 0;
+}
+.ds-user-card__meta strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ds-user-card__meta span {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ds-user-card__chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ds-user-menu {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(100% + 6px);
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+.ds-user-menu button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+.ds-user-menu button:hover {
+  background: var(--bg-1);
+  color: var(--red);
+}
+
+/* ---------- main / header ---------- */
+
+.ds-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ds-bg-light);
+}
+
+.ds-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 32px;
+  background: var(--ds-surface);
+  border-bottom: 1px solid var(--ds-border-light);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.ds-header__search {
+  flex: 1;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--ds-bg-light);
+  border: 1px solid var(--ds-border-light);
+  border-radius: 8px;
+  color: var(--ds-ink-soft);
+}
+.ds-header__search svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.ds-header__search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ds-ink);
+}
+.ds-header__search input::placeholder {
+  color: var(--ds-ink-soft);
+}
+
+.ds-header__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ds-icon-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--ds-ink-soft);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.ds-icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.ds-icon-btn:hover {
+  background: var(--ds-bg-light);
+  border-color: var(--ds-border-light);
+  color: var(--ds-ink);
+}
+.ds-icon-btn__dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 1.5px solid var(--ds-surface);
+}
+
+/* ---------- content ---------- */
+
+.ds-content {
+  flex: 1;
+  padding: 40px;
+}
+
+.ds-content-inner {
+  max-width: 1180px;
+}
+
+.ds-page-title {
+  font-family: var(--sans);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--ds-ink);
+  margin: 0;
+}
+
+.ds-page-placeholder {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  color: var(--ds-ink-soft);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 960px) {
+  .ds-sidebar {
+    width: 220px;
+  }
+  .ds-header {
+    padding: 14px 20px;
+  }
+  .ds-content {
+    padding: 28px 20px;
+  }
+}
+
+@media (max-width: 720px) {
+  .ds-shell {
+    flex-direction: column;
+  }
+  .ds-sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+  }
+  .ds-sidebar__brand {
+    border-bottom: none;
+    border-right: 1px solid var(--ds-sidebar-border);
+    flex-shrink: 0;
+  }
+  .ds-sidebar__nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 10px;
+  }
+  .ds-nav-item span {
+    display: none;
+  }
+  .ds-sidebar__footer {
+    border-top: none;
+    border-left: 1px solid var(--ds-sidebar-border);
+    flex-shrink: 0;
+  }
+  .ds-user-card__meta {
+    display: none;
+  }
+  .ds-header__search {
+    max-width: none;
+  }
+}
