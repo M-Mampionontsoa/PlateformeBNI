@@ -1,6 +1,6 @@
 import httpx
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -78,9 +78,8 @@ if settings.GOOGLE_OAUTH_ENABLED:
     status_code=status.HTTP_201_CREATED,
     summary="Créer un compte",
 )
-def register(
+async def register(
     user_in: schemas.UserCreate,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     existing = (
@@ -106,12 +105,15 @@ def register(
     db.commit()
     db.refresh(user)
 
-    # Envoi de l'email de verification en arriere-plan (n'empeche jamais
-    # l'inscription de reussir si le SMTP est indisponible ou non configure).
     raw_token = create_verification_token(db, user.id)
-    background_tasks.add_task(
-        send_verification_email, user.email, user.full_name, raw_token
-    )
+    try:
+        await send_verification_email(user.email, user.full_name, raw_token)
+    except Exception as exc:
+        print(f"[email] Impossible d'envoyer la validation: {type(exc).__name__}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Compte créé, mais l'email de validation n'a pas pu être envoyé. Réessayez plus tard.",
+        ) from exc
 
     return user
 
@@ -151,6 +153,12 @@ def login(
             headers={
                 "WWW-Authenticate": "Bearer"
             },
+        )
+
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Veuillez vérifier votre adresse email avant de vous connecter.",
         )
 
     access_token = create_access_token(
@@ -446,8 +454,7 @@ def verify_email(
     status_code=status.HTTP_202_ACCEPTED,
     summary="Renvoie un email de verification a l'utilisateur connecte",
 )
-def resend_verification(
-    background_tasks: BackgroundTasks,
+async def resend_verification(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -455,7 +462,5 @@ def resend_verification(
         return {"detail": "Cette adresse est deja verifiee."}
 
     raw_token = create_verification_token(db, current_user.id)
-    background_tasks.add_task(
-        send_verification_email, current_user.email, current_user.full_name, raw_token
-    )
+    await send_verification_email(current_user.email, current_user.full_name, raw_token)
     return {"detail": "Email de verification envoye."}

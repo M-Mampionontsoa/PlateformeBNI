@@ -83,6 +83,7 @@ export default function Auth({ onAuth }) {
     remember: false,
   });
   const [errors, setErrors] = useState({});
+  const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const update = (field) => (e) => {
@@ -93,6 +94,7 @@ export default function Auth({ onAuth }) {
   const switchTab = (key) => {
     setTab(key);
     setErrors({});
+    setNotice("");
   };
 
   const validate = () => {
@@ -120,12 +122,14 @@ export default function Auth({ onAuth }) {
     try {
       if (tab === "signin") {
         await api.login(form.email, form.password);
+        onAuth?.(form);
       } else {
         await api.register(form.name, form.email, form.password);
-        // Après inscription, on connecte directement l'utilisateur
-        await api.login(form.email, form.password);
+        setTab("signin");
+        setErrors({});
+        setNotice("Compte créé. Consultez votre boîte Gmail et cliquez sur le lien de validation avant de vous connecter.");
+        setForm((current) => ({ ...current, password: "", confirm: "" }));
       }
-      onAuth?.(form);
     } catch (err) {
       setErrors({ form: err.message || "Une erreur est survenue. Réessayez." });
     } finally {
@@ -253,6 +257,7 @@ export default function Auth({ onAuth }) {
               </label>
             )}
 
+            {notice && <span className="auth-notice">{notice}</span>}
             {errors.form && <span className="auth-error">{errors.form}</span>}
 
             <button className="auth-submit" type="submit" disabled={submitting}>

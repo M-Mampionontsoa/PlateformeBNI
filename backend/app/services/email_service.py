@@ -1,41 +1,21 @@
+import html
+
+import httpx
+
 from ..config import settings
-
-_fm = None
-
-
-def _get_mailer():
-    """Construit le client SMTP a la demande, uniquement si les identifiants
-    sont fournis. Evite de faire planter l'app au demarrage quand le SMTP
-    n'est pas configure (dev local / demo)."""
-    global _fm
-    if _fm is None and settings.MAIL_ENABLED:
-        from fastapi_mail import FastMail, ConnectionConfig
-
-        conf = ConnectionConfig(
-            MAIL_USERNAME=settings.MAIL_USERNAME,
-            MAIL_PASSWORD=settings.MAIL_PASSWORD,
-            MAIL_FROM=settings.MAIL_FROM,
-            MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
-            MAIL_PORT=settings.MAIL_PORT,
-            MAIL_SERVER=settings.MAIL_SERVER,
-            MAIL_STARTTLS=True,
-            MAIL_SSL_TLS=False,
-            USE_CREDENTIALS=True,
-            VALIDATE_CERTS=True,
-        )
-        _fm = FastMail(conf)
-    return _fm
 
 
 def _verification_email_html(full_name: str, verification_link: str) -> str:
+    safe_name = html.escape(full_name)
+    safe_link = html.escape(verification_link, quote=True)
     return f"""
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e;">Vérifiez votre adresse email</h2>
-        <p>Bonjour {full_name},</p>
+        <p>Bonjour {safe_name},</p>
         <p>Merci d'avoir créé votre compte sur la Plateforme BNI.</p>
         <p>Pour terminer votre inscription, veuillez confirmer votre adresse email :</p>
         <p style="text-align: center; margin: 32px 0;">
-            <a href="{verification_link}"
+            <a href="{safe_link}"
                style="background-color: #1a1a2e; color: #ffffff; padding: 12px 28px;
                       text-decoration: none; border-radius: 6px; display: inline-block;">
                 Vérifier mon adresse email
@@ -51,34 +31,37 @@ def _verification_email_html(full_name: str, verification_link: str) -> str:
     """
 
 
-async def send_verification_email(to_email: str, full_name: str, token: str) -> None:
-    """
-    Envoie l'email de vérification à l'utilisateur.
-    C'est la SEULE fonction que le reste de l'app doit appeler —
-    aucun autre fichier ne doit connaître Brevo, SMTP, ou fastapi-mail directement.
+async def send_verification_email(to_email: str, full_name: str, token: str) -> bool:
+    """Envoie l'email de validation via l'API transactionnelle Brevo."""
+    if not settings.MAIL_ENABLED:
+        raise RuntimeError("Brevo n'est pas configuré pour l'envoi d'emails.")
 
-    Si le SMTP n'est pas configure (settings.MAIL_ENABLED == False), la
-    fonction n'envoie rien et se contente de logger le lien de verification
-    - pratique en dev local / demo sans avoir a configurer un vrai SMTP.
-    """
-    verification_link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
-
-    mailer = _get_mailer()
-    if mailer is None:
-        print(f"[email] SMTP non configure - lien de verification pour {to_email}: {verification_link}")
-        return
-
-    from fastapi_mail import MessageSchema, MessageType
-
-    message = MessageSchema(
-        subject="Vérifiez votre adresse email",
-        recipients=[to_email],
-        body=_verification_email_html(full_name, verification_link),
-        subtype=MessageType.html,
+    verification_link = (
+        f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={token}"
     )
+    payload = {
+        "sender": {
+            "name": settings.MAIL_FROM_NAME,
+            "email": settings.MAIL_FROM,
+        },
+        "to": [{"email": to_email, "name": full_name}],
+        "subject": "Vérifiez votre adresse email",
+        "htmlContent": _verification_email_html(full_name, verification_link),
+    }
 
-    try:
-        await mailer.send_message(message)
-    except Exception as exc:
-        # On ne bloque jamais l'inscription si l'envoi d'email echoue.
-        print(f"[email] Echec de l'envoi de l'email de verification a {to_email}: {exc}")
+    async with httpx.AsyncClient(timeout=20.0, trust_env=False) as client:
+        response = await client.post(
+            f"{settings.BREVO_API_URL}/smtp/email",
+            headers={
+                "accept": "application/json",
+                "api-key": settings.BREVO_API_KEY,
+                "content-type": "application/json",
+            },
+            json=payload,
+        )
+
+    if response.is_error:
+        print(f"[email] Brevo a répondu HTTP {response.status_code}.")
+        response.raise_for_status()
+
+    return True
