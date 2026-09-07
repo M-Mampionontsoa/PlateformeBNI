@@ -1,7 +1,9 @@
-const BASE = "/api";
-// Origine complete du backend, utilisee uniquement pour les redirections
-// pleine page (ex: OAuth Google) qui ne passent pas par le proxy Vite.
-export const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || "http://localhost:8000";
+// En local, on garde le proxy Vite (/api -> localhost:8000).
+// En production statique (Cloudflare Pages/Vercel), les appels doivent
+// viser directement l'API publique, car le frontend n'a pas de proxy /api.
+const configuredOrigin = (import.meta.env.VITE_API_ORIGIN || "").replace(/\/$/, "");
+export const API_ORIGIN = configuredOrigin || "http://localhost:8000";
+const BASE = configuredOrigin ? `${API_ORIGIN}/api` : "/api";
 
 async function request(path, options = {}) {
   const token = localStorage.getItem("access_token");
