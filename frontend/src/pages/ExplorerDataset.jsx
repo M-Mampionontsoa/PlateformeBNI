@@ -29,6 +29,8 @@ import {
 import { api } from "../api.js";
 import "./styles/explorerDataset.css";
 
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const EMPTY_TABS = [
   "Données",
@@ -86,9 +88,7 @@ function getFileType(dataset) {
     dataset?.extension ||
     "Parquet";
 
-  return String(value)
-    .replace(".", "")
-    .replace("parquet", "Parquet");
+  return String(value).replace(".", "").replace("parquet", "Parquet");
 }
 
 /*
@@ -163,7 +163,7 @@ function buildPreviewRows(data) {
       data.columns.slice(0, 6).reduce((acc, column) => {
         acc[column] = row[column];
         return acc;
-      }, {})
+      }, {}),
     );
   }
 
@@ -228,6 +228,21 @@ export default function ExplorerDataset() {
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
 
+  const COLUMN_TYPES = [
+    { label: "Numérique", count: 14, percent: "50%" },
+    { label: "Catégorie", count: 8, percent: "28.6%" },
+    { label: "Date", count: 4, percent: "14.3%" },
+    { label: "Texte", count: 2, percent: "7.1%" },
+  ];
+
+  const MISSING_VALUES = [
+    { column: "customer_id", percent: "0.5%" },
+    { column: "discount", percent: "1.2%" },
+    { column: "region", percent: "0.3%" },
+    { column: "cost", percent: "2.1%" },
+    { column: "autres colonnes", percent: "0.8%" },
+  ];
+
   /*
    * =======================================================
    * DONNÉES RÉELLES
@@ -252,9 +267,7 @@ export default function ExplorerDataset() {
 
         if (!mounted) return;
 
-        const found = datasets.find(
-          (item) => Number(item.id) === datasetId
-        );
+        const found = datasets.find((item) => Number(item.id) === datasetId);
 
         // DONNÉES RÉELLES
         setDataset(found || datasets[0] || null);
@@ -304,10 +317,7 @@ export default function ExplorerDataset() {
    *
    * "Finance" = DONNÉE FICTIVE DE SECOURS.
    */
-  const category =
-    dataset?.category ||
-    dataset?.category_name ||
-    "Finance";
+  const category = dataset?.category || dataset?.category_name || "Finance";
 
   /*
    * DONNÉES RÉELLES SI DISPONIBLES.
@@ -321,10 +331,7 @@ export default function ExplorerDataset() {
   /*
    * DONNÉES RÉELLES OU FICTIVES SELON buildPreviewRows().
    */
-  const previewRows = useMemo(
-    () => buildPreviewRows(data),
-    [data]
-  );
+  const previewRows = useMemo(() => buildPreviewRows(data), [data]);
 
   /*
    * DONNÉES RÉELLES :
@@ -337,14 +344,7 @@ export default function ExplorerDataset() {
       return data.columns.slice(0, 6);
     }
 
-    return [
-      "date",
-      "region",
-      "product",
-      "revenue",
-      "cost",
-      "profit",
-    ];
+    return ["date", "region", "product", "revenue", "cost", "profit"];
   }, [data]);
 
   /*
@@ -369,9 +369,207 @@ export default function ExplorerDataset() {
     dataset?.uploaded_at ||
     "2023-10-24";
 
+  // Telechargement pdf-------------------------------------------------
+
+  function handleDownloadPdf() {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 14;
+    let y;
+
+    // ---- En-tête ----
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 30, "F");
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(name, marginX, 14);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(
+      `Données financières  •  Ajouté le ${formatDate(createdAt)}  •  par ${owner}`,
+      marginX,
+      21,
+    );
+
+    doc.setFillColor(13, 148, 136);
+    doc.roundedRect(pageWidth - marginX - 26, 9, 26, 8, 2, 2, "F");
+    doc.setFontSize(8);
+    doc.text("Published", pageWidth - marginX - 13, 14.5, { align: "center" });
+
+    y = 38;
+
+    // ---- Description ----
+    doc.setTextColor(51, 65, 85);
+    doc.setFontSize(10);
+    const descLines = doc.splitTextToSize(description, pageWidth - marginX * 2);
+    doc.text(descLines, marginX, y);
+    y += descLines.length * 5 + 4;
+
+    // ---- Tags ----
+    let tagX = marginX;
+    ["finance", "revenue", "forecast", "+2"].forEach((tag) => {
+      const tagWidth = doc.getTextWidth(tag) + 6;
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(tagX, y - 4, tagWidth, 6, 1.5, 1.5, "F");
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(8);
+      doc.text(tag, tagX + 3, y);
+      tagX += tagWidth + 3;
+    });
+    y += 10;
+
+    // ---- Infos générales (2 colonnes) ----
+    const infoLeft = [
+      ["Type", fileType],
+      ["Taille", dataset?.size || "42.5 MB"],
+      ["Lignes", formatNumber(rows)],
+      ["Colonnes", String(columns)],
+    ];
+    const infoRight = [
+      ["Propriétaire", owner],
+      ["Catégorie", category],
+      ["Dernière mise à jour", `${formatDate(lastUpdated)} à 10:00`],
+      ["Statut", "Published"],
+    ];
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(marginX, y, pageWidth - marginX * 2, 30, 2, 2, "FD");
+
+    const colWidth = (pageWidth - marginX * 2) / 2;
+    infoLeft.forEach(([label, value], i) => {
+      const rowY = y + 6 + i * 6.5;
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(8);
+      doc.text(label, marginX + 4, rowY);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(9);
+      doc.text(String(value), marginX + 40, rowY);
+    });
+    infoRight.forEach(([label, value], i) => {
+      const rowY = y + 6 + i * 6.5;
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(8);
+      doc.text(label, marginX + colWidth + 4, rowY);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(9);
+      doc.text(String(value), marginX + colWidth + 45, rowY);
+    });
+
+    y += 38;
+
+    // ---- Aperçu des données ----
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Aperçu des données", marginX, y);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      head: [previewColumns],
+      body: previewRows.map((row) =>
+        previewColumns.map((column) =>
+          row[column] === null || row[column] === undefined
+            ? "—"
+            : String(row[column]),
+        ),
+      ),
+      styles: { fontSize: 8, textColor: [51, 65, 85], cellPadding: 2 },
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    y = doc.lastAutoTable.finalY + 12;
+
+    // ---- Statistiques générales ----
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Statistiques générales", marginX, y);
+    doc.setFont("helvetica", "normal");
+    y += 6;
+
+    const stats = [
+      { label: "Lignes", value: formatNumber(rows) },
+      { label: "Colonnes", value: String(columns) },
+      { label: "Valeurs manquantes", value: "2.1%" },
+      { label: "Taille", value: dataset?.size || "42.5 MB" },
+    ];
+
+    const boxWidth = (pageWidth - marginX * 2 - 9) / 4;
+    stats.forEach((stat, i) => {
+      const boxX = marginX + i * (boxWidth + 3);
+      doc.setDrawColor(226, 232, 240);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(boxX, y, boxWidth, 18, 2, 2, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(12);
+      doc.text(stat.value, boxX + 4, y + 8);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(7.5);
+      doc.text(stat.label, boxX + 4, y + 14);
+    });
+
+    y += 26;
+
+    // ---- Colonnes par type ----
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Colonnes par type", marginX, y);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+
+    const halfWidth = (pageWidth - marginX * 2) / 2 - 3;
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      tableWidth: halfWidth,
+      head: [["Type", "Colonnes", "Part"]],
+      body: COLUMN_TYPES.map((t) => [t.label, String(t.count), t.percent]),
+      styles: { fontSize: 8, textColor: [51, 65, 85], cellPadding: 2 },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [51, 65, 85],
+        fontStyle: "bold",
+      },
+    });
+
+    // ---- Valeurs manquantes ----
+    autoTable(doc, {
+      startY: y,
+      margin: { left: marginX + halfWidth + 6, right: marginX },
+      tableWidth: halfWidth,
+      head: [["Colonne", "Manquant"]],
+      body: MISSING_VALUES.map((m) => [m.column, m.percent]),
+      styles: { fontSize: 8, textColor: [51, 65, 85], cellPadding: 2 },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [51, 65, 85],
+        fontStyle: "bold",
+      },
+    });
+
+    doc.save(`${name}.pdf`);
+  }
+
   return (
     <div className="ed-page">
-
       {/* =====================================================
           SIDEBAR
           -----------------------------------------------------
@@ -379,10 +577,7 @@ export default function ExplorerDataset() {
           Réutilisation de Sidebar.jsx.
       ===================================================== */}
 
- 
-
       <div className="ed-main">
-
         {/* ===================================================
             HEADER GLOBAL
             ---------------------------------------------------
@@ -390,18 +585,13 @@ export default function ExplorerDataset() {
             Réutilisation de Header.jsx.
         =================================================== */}
 
-
         {/* ===================================================
             BREADCRUMB DE L'EXPLORATEUR
         =================================================== */}
 
         <div className="ed-topbar">
-
           <div className="ed-breadcrumb">
-
-            <Link to="/app/datasets">
-              Datasets
-            </Link>
+            <Link to="/app/datasets">Datasets</Link>
 
             <FiChevronRight />
 
@@ -410,10 +600,7 @@ export default function ExplorerDataset() {
             <FiChevronRight />
 
             <strong>Explorer</strong>
-
           </div>
-
-
         </div>
 
         {/* =====================================================
@@ -421,42 +608,29 @@ export default function ExplorerDataset() {
         ===================================================== */}
 
         <section className="ed-dataset-header">
-
           <div className="ed-dataset-main">
-
             <div className="ed-dataset-icon">
               <FiBarChart2 />
             </div>
 
             <div className="ed-dataset-description">
-
               <div className="ed-title-line">
-
                 <h1>{name}</h1>
 
                 {/* DONNÉE FICTIVE :
                     "Published" est actuellement codé en dur. */}
-                <span className="ed-status">
-                  Published
-                </span>
-
+                <span className="ed-status">Published</span>
               </div>
 
               <div className="ed-meta-line">
-
                 {/* DONNÉE FICTIVE */}
                 Données financières
-
                 <span>•</span>
-
                 {/* DONNÉE RÉELLE SI DISPONIBLE */}
                 Ajouté le {formatDate(createdAt)}
-
                 <span>•</span>
-
                 {/* DONNÉE RÉELLE SI DISPONIBLE */}
                 par {owner}
-
               </div>
 
               {/* RÉELLE SI DISPONIBLE, SINON FICTIVE */}
@@ -475,9 +649,7 @@ export default function ExplorerDataset() {
                 <span>forecast</span>
                 <span>+2</span>
               </div>
-
             </div>
-
           </div>
 
           {/* ===================================================
@@ -488,8 +660,7 @@ export default function ExplorerDataset() {
           =================================================== */}
 
           <div className="ed-header-buttons">
-
-            <button className="ed-action-button">
+            <button className="ed-action-button" onClick={handleDownloadPdf}>
               <FiDownload />
               Télécharger
             </button>
@@ -503,7 +674,6 @@ export default function ExplorerDataset() {
               <FiLock />
               Demander l'accès
             </button>
-
           </div>
 
           {/* ===================================================
@@ -511,9 +681,7 @@ export default function ExplorerDataset() {
           =================================================== */}
 
           <div className="ed-dataset-info">
-
             <div className="ed-info-column">
-
               <div className="ed-info-item">
                 <FiFileText />
 
@@ -523,7 +691,6 @@ export default function ExplorerDataset() {
                   {/* RÉEL SI API, SINON FICTIF */}
                   <strong>{fileType}</strong>
                 </div>
-
               </div>
 
               <div className="ed-info-item">
@@ -533,11 +700,8 @@ export default function ExplorerDataset() {
                   <span>Taille</span>
 
                   {/* RÉEL SI API, SINON 42.5 MB = FICTIF */}
-                  <strong>
-                    {dataset?.size || "42.5 MB"}
-                  </strong>
+                  <strong>{dataset?.size || "42.5 MB"}</strong>
                 </div>
-
               </div>
 
               <div className="ed-info-item">
@@ -547,11 +711,8 @@ export default function ExplorerDataset() {
                   <span>Lignes</span>
 
                   {/* RÉEL SI API, SINON 2 400 000 = FICTIF */}
-                  <strong>
-                    {formatNumber(rows)}
-                  </strong>
+                  <strong>{formatNumber(rows)}</strong>
                 </div>
-
               </div>
 
               <div className="ed-info-item">
@@ -563,13 +724,10 @@ export default function ExplorerDataset() {
                   {/* RÉEL SI API, SINON 28 = FICTIF */}
                   <strong>{columns}</strong>
                 </div>
-
               </div>
-
             </div>
 
             <div className="ed-info-column">
-
               <div className="ed-info-item">
                 <FiUser />
 
@@ -579,7 +737,6 @@ export default function ExplorerDataset() {
                   {/* RÉEL SI API, SINON Sarah Chen = FICTIF */}
                   <strong>{owner}</strong>
                 </div>
-
               </div>
 
               <div className="ed-info-item">
@@ -591,7 +748,6 @@ export default function ExplorerDataset() {
                   {/* RÉEL SI API, SINON Finance = FICTIF */}
                   <strong>{category}</strong>
                 </div>
-
               </div>
 
               <div className="ed-info-item">
@@ -601,11 +757,8 @@ export default function ExplorerDataset() {
                   <span>Dernière mise à jour</span>
 
                   {/* RÉEL SI API, SINON DATE FICTIVE */}
-                  <strong>
-                    {formatDate(lastUpdated)} à 10:00
-                  </strong>
+                  <strong>{formatDate(lastUpdated)} à 10:00</strong>
                 </div>
-
               </div>
 
               <div className="ed-info-item">
@@ -615,17 +768,11 @@ export default function ExplorerDataset() {
                   <span>Statut</span>
 
                   {/* DONNÉE FICTIVE */}
-                  <strong className="ed-published">
-                    ● Published
-                  </strong>
+                  <strong className="ed-published">● Published</strong>
                 </div>
-
               </div>
-
             </div>
-
           </div>
-
         </section>
 
         {/* =====================================================
@@ -633,7 +780,6 @@ export default function ExplorerDataset() {
         ===================================================== */}
 
         <nav className="ed-tabs">
-
           <button
             className={activeTab === "Aperçu" ? "active" : ""}
             onClick={() => setActiveTab("Aperçu")}
@@ -650,7 +796,6 @@ export default function ExplorerDataset() {
               {tab}
             </button>
           ))}
-
         </nav>
 
         {/* =====================================================
@@ -661,15 +806,11 @@ export default function ExplorerDataset() {
 
         {activeTab !== "Aperçu" && (
           <div className="ed-empty-tab">
-
             <FiDatabase />
 
             <h2>{activeTab}</h2>
 
-            <p>
-              Cette section sera disponible prochainement.
-            </p>
-
+            <p>Cette section sera disponible prochainement.</p>
           </div>
         )}
 
@@ -679,7 +820,6 @@ export default function ExplorerDataset() {
 
         {activeTab === "Aperçu" && (
           <main className="ed-content">
-
             {/* =================================================
                 ROW 1
                 -------------------------------------------------
@@ -687,7 +827,6 @@ export default function ExplorerDataset() {
             ================================================= */}
 
             <div className="ed-grid ed-grid-top">
-
               {/* =================================================
                   APERÇU DES DONNÉES
                   -------------------------------------------------
@@ -696,95 +835,57 @@ export default function ExplorerDataset() {
               ================================================= */}
 
               <section className="ed-card ed-preview-card">
-
                 <div className="ed-card-header">
-
                   <div>
-
                     <h2>
                       Aperçu des données
                       <FiInfo />
                     </h2>
 
-                    <p>
-                      Affichage des 5 premières lignes
-                    </p>
-
+                    <p>Affichage des 5 premières lignes</p>
                   </div>
-
                 </div>
 
                 {loading ? (
-
-                  <div className="ed-loading">
-                    Chargement des données…
-                  </div>
-
+                  <div className="ed-loading">Chargement des données…</div>
                 ) : (
-
                   <div className="ed-preview-table-wrap">
-
                     <table className="ed-preview-table">
-
                       <thead>
-
                         <tr>
-
                           {previewColumns.map((column) => (
-                            <th key={column}>
-                              {column}
-                            </th>
+                            <th key={column}>{column}</th>
                           ))}
 
                           <th>...</th>
-
                         </tr>
-
                       </thead>
 
                       <tbody>
-
                         {previewRows.map((row, index) => (
-
                           <tr key={index}>
-
                             {previewColumns.map((column) => (
-
                               <td key={column}>
-
                                 {row[column] === null ||
                                 row[column] === undefined
                                   ? "—"
                                   : String(row[column])}
-
                               </td>
-
                             ))}
 
                             <td>...</td>
-
                           </tr>
-
                         ))}
-
                       </tbody>
-
                     </table>
-
                   </div>
-
                 )}
 
                 <button className="ed-outline-link">
-
                   Voir toutes les données
-
                   <FiArrowRight />
-
                 </button>
-
               </section>
-
             </div>
 
             {/* =================================================
@@ -797,7 +898,6 @@ export default function ExplorerDataset() {
             ================================================= */}
 
             <div className="ed-grid ed-grid-bottom ed-grid-single">
-
               {/* =================================================
                   STATISTIQUES GÉNÉRALES
                   -------------------------------------------------
@@ -815,37 +915,23 @@ export default function ExplorerDataset() {
               ================================================= */}
 
               <section className="ed-card ed-stats-card">
-
                 <div className="ed-card-header">
-
-                  <h2>
-                    Statistiques générales
-                  </h2>
-
+                  <h2>Statistiques générales</h2>
                 </div>
 
                 <div className="ed-stat-boxes">
-
                   {/* =================================================
                       RÉEL SI API DISPONIBLE
                   ================================================= */}
 
                   <div className="ed-stat-box">
-
                     <FiActivity />
 
                     <div>
+                      <strong>{formatNumber(rows)}</strong>
 
-                      <strong>
-                        {formatNumber(rows)}
-                      </strong>
-
-                      <span>
-                        Lignes
-                      </span>
-
+                      <span>Lignes</span>
                     </div>
-
                   </div>
 
                   {/* =================================================
@@ -853,21 +939,13 @@ export default function ExplorerDataset() {
                   ================================================= */}
 
                   <div className="ed-stat-box">
-
                     <FiGrid />
 
                     <div>
+                      <strong>{columns}</strong>
 
-                      <strong>
-                        {columns}
-                      </strong>
-
-                      <span>
-                        Colonnes
-                      </span>
-
+                      <span>Colonnes</span>
                     </div>
-
                   </div>
 
                   {/* =================================================
@@ -875,21 +953,13 @@ export default function ExplorerDataset() {
                   ================================================= */}
 
                   <div className="ed-stat-box">
-
                     <FiActivity />
 
                     <div>
+                      <strong>2.1%</strong>
 
-                      <strong>
-                        2.1%
-                      </strong>
-
-                      <span>
-                        Valeurs manquantes
-                      </span>
-
+                      <span>Valeurs manquantes</span>
                     </div>
-
                   </div>
 
                   {/* =================================================
@@ -898,27 +968,17 @@ export default function ExplorerDataset() {
                   ================================================= */}
 
                   <div className="ed-stat-box">
-
                     <FiFileText />
 
                     <div>
+                      <strong>{dataset?.size || "42.5 MB"}</strong>
 
-                      <strong>
-                        {dataset?.size || "42.5 MB"}
-                      </strong>
-
-                      <span>
-                        Taille
-                      </span>
-
+                      <span>Taille</span>
                     </div>
-
                   </div>
-
                 </div>
 
                 <div className="ed-stat-details">
-
                   {/* =================================================
                       COLONNES PAR TYPE
                       -------------------------------------------------
@@ -926,34 +986,21 @@ export default function ExplorerDataset() {
                   ================================================= */}
 
                   <div className="ed-column-types">
-
-                    <h3>
-                      Colonnes par type
-                    </h3>
+                    <h3>Colonnes par type</h3>
 
                     <div className="ed-donut-area">
-
                       <div className="ed-donut">
-
                         <div>
-
                           {/* Le nombre total de colonnes
                               peut être RÉEL grâce à {columns}. */}
 
-                          <strong>
-                            {columns}
-                          </strong>
+                          <strong>{columns}</strong>
 
-                          <span>
-                            colonnes
-                          </span>
-
+                          <span>colonnes</span>
                         </div>
-
                       </div>
 
                       <div className="ed-donut-legend">
-
                         {/* FICTIF */}
 
                         <span>
@@ -981,11 +1028,8 @@ export default function ExplorerDataset() {
                           <i className="text" />
                           Texte&nbsp; 2 (7.1%)
                         </span>
-
                       </div>
-
                     </div>
-
                   </div>
 
                   {/* =================================================
@@ -995,114 +1039,74 @@ export default function ExplorerDataset() {
                   ================================================= */}
 
                   <div className="ed-missing">
-
-                    <h3>
-                      Valeurs manquantes
-                    </h3>
+                    <h3>Valeurs manquantes</h3>
 
                     {/* FICTIF */}
 
                     <div className="ed-missing-row">
-
-                      <span>
-                        customer_id
-                      </span>
+                      <span>customer_id</span>
 
                       <div>
                         <i style={{ width: "10%" }} />
                       </div>
 
-                      <strong>
-                        0.5%
-                      </strong>
-
+                      <strong>0.5%</strong>
                     </div>
 
                     {/* FICTIF */}
 
                     <div className="ed-missing-row">
-
-                      <span>
-                        discount
-                      </span>
+                      <span>discount</span>
 
                       <div>
                         <i style={{ width: "18%" }} />
                       </div>
 
-                      <strong>
-                        1.2%
-                      </strong>
-
+                      <strong>1.2%</strong>
                     </div>
 
                     {/* FICTIF */}
 
                     <div className="ed-missing-row">
-
-                      <span>
-                        region
-                      </span>
+                      <span>region</span>
 
                       <div>
                         <i style={{ width: "7%" }} />
                       </div>
 
-                      <strong>
-                        0.3%
-                      </strong>
-
+                      <strong>0.3%</strong>
                     </div>
 
                     {/* FICTIF */}
 
                     <div className="ed-missing-row">
-
-                      <span>
-                        cost
-                      </span>
+                      <span>cost</span>
 
                       <div>
                         <i style={{ width: "30%" }} />
                       </div>
 
-                      <strong>
-                        2.1%
-                      </strong>
-
+                      <strong>2.1%</strong>
                     </div>
 
                     {/* FICTIF */}
 
                     <div className="ed-missing-row">
-
-                      <span>
-                        autres colonnes
-                      </span>
+                      <span>autres colonnes</span>
 
                       <div>
                         <i style={{ width: "15%" }} />
                       </div>
 
-                      <strong>
-                        0.8%
-                      </strong>
-
+                      <strong>0.8%</strong>
                     </div>
-
                   </div>
-
                 </div>
-
               </section>
-
             </div>
-
           </main>
         )}
-
       </div>
-
     </div>
   );
 }
