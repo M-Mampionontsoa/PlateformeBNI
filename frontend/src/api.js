@@ -1,10 +1,29 @@
 const BASE = "/api";
-// Origine complete du backend, utilisee uniquement pour les redirections
-// pleine page (ex: OAuth Google) qui ne passent pas par le proxy Vite.
-export const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || "http://localhost:8000";
+
+export const API_ORIGIN =
+  import.meta.env.VITE_API_ORIGIN || "http://localhost:8000";
+
+const TOKEN_KEY = "access_token";
+
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+}
+
+function setToken(token, remember) {
+  if (remember) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    sessionStorage.setItem(TOKEN_KEY, token);
+  }
+}
+
+function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+}
 
 async function request(path, options = {}) {
-  const token = localStorage.getItem("access_token");
+  const token = getToken();
   const headers = {
     ...(options.headers || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -14,7 +33,7 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     if (res.status === 401) {
-      localStorage.removeItem("access_token");
+      clearToken();
     }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail || `Erreur ${res.status}`);
@@ -31,10 +50,11 @@ export const api = {
       body: JSON.stringify({ full_name, email, password }),
     }),
 
-  login: async (email, password) => {
+  login: async (email, password, remember = false) => {
     const formData = new URLSearchParams();
     formData.append("username", email);
     formData.append("password", password);
+    formData.append("remember", remember ? "true" : "false");
 
     const data = await request("/auth/login", {
       method: "POST",
@@ -42,12 +62,12 @@ export const api = {
       body: formData,
     });
 
-    localStorage.setItem("access_token", data.access_token);
+    setToken(data.access_token, remember);
     return data;
   },
 
   logout: () => {
-    localStorage.removeItem("access_token");
+    clearToken();
   },
 
   getCurrentUser: () => request("/auth/me"),
@@ -64,7 +84,7 @@ export const api = {
   uploadFile: async (file) => {
     const form = new FormData();
     form.append("file", file);
-    const token = localStorage.getItem("access_token");
+    const token = getToken();
     const res = await fetch(`${BASE}/ingestion/upload`, {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : {},

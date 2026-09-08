@@ -1,6 +1,7 @@
 import httpx
+from datetime import timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -15,6 +16,8 @@ from ..auth import (
     get_current_user,
     create_verification_token,
     consume_verification_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REMEMBER_ME_EXPIRE_MINUTES,
 )
 from ..config import settings
 from ..database import get_db
@@ -127,6 +130,7 @@ def register(
 )
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
+    remember: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     user = (
@@ -153,10 +157,17 @@ def login(
             },
         )
 
+    expires_delta = timedelta(
+        minutes=(
+            REMEMBER_ME_EXPIRE_MINUTES
+            if remember
+            else ACCESS_TOKEN_EXPIRE_MINUTES
+        )
+    )
+
     access_token = create_access_token(
-        data={
-            "sub": user.email
-        }
+        data={"sub": user.email},
+        expires_delta=expires_delta,
     )
 
     return {
@@ -403,7 +414,7 @@ async def google_callback(
 
     access_token = create_access_token(
         data={
-            "sub": user.email
+            "sub": user.email 
         }
     )
 
