@@ -23,6 +23,13 @@ class Dataset(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     row_count = Column(Integer, default=0)
+    file_type = Column(String(50), nullable=True)
+    size = Column(String(50), nullable=True)
+    owner = Column(String(255), nullable=True)
+    category = Column(String(255), nullable=True)
+    status = Column(String(50), nullable=True, default="Published")
+    tags = Column(JSON, nullable=True)  # liste de chaînes, ex: ["finance", "clients"]
+    updated_at = Column(DateTime, default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow)
     column_schema = Column(JSON, nullable=True)  # [{name, dtype}, ...]
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 

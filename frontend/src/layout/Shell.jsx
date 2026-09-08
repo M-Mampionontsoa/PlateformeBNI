@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import "./dashboardShell.css";
 
 import Sidebar from "./Sidebar.jsx";
@@ -13,8 +13,11 @@ import Visualizations from "../pages/Visualizations.jsx";
 import MlScoring from "../pages/MlScoring.jsx";
 import FraudDetection from "../pages/FraudDetection.jsx";
 import Administration from "../pages/Administration.jsx";
+import ExplorerDataset from "../pages/ExplorerDataset.jsx"; // adapte le chemin si besoin
 
 export default function Shell({ onLogout, user }) {
+  const isAuthenticated = !!user; // ou selon ta logique d'auth
+
   return (
     <div className="ds-shell">
       <Sidebar onLogout={onLogout} user={user} />
@@ -32,6 +35,16 @@ export default function Shell({ onLogout, user }) {
             <Route path="/ml-scoring" element={<MlScoring />} />
             <Route path="/fraud-detection" element={<FraudDetection />} />
             <Route path="/administration" element={<Administration />} />
+            <Route
+              path="/datasets/:id/explorer"
+              element={
+                isAuthenticated ? (
+                  <ExplorerDataset />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
           </Routes>
         </div>
       </div>

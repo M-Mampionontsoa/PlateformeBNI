@@ -50,5 +50,12 @@ class Settings:
         "SESSION_SECRET_KEY", "dev-session-secret-key-change-me"
     )
 
+    #========================================================
+    # Databricks
+    #========================================================
+    DATABRICKS_SERVER_HOSTNAME: str = os.getenv("DATABRICKS_SERVER_HOSTNAME", "")
+    DATABRICKS_HTTP_PATH: str = os.getenv("DATABRICKS_HTTP_PATH", "")
+    DATABRICKS_TOKEN: str = os.getenv("DATABRICKS_TOKEN", "")
+
 
 settings = Settings()

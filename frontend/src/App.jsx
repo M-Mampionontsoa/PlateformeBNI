@@ -12,22 +12,16 @@ import Landing from "./pages/Landing/Landing.jsx";
 import Auth from "./pages/Auth/Auth.jsx";
 import GoogleCallback from "./pages/Auth/GoogleCallback.jsx";
 import VerifyEmail from "./pages/Auth/VerifyEmail.jsx";
+
 import Shell from "./layout/Shell.jsx";
 
-// Anciennes pages — mises de côté le temps d'intégrer les 8 nouvelles
-// sections du dashboard. Rien n'est supprimé, à réintégrer plus tard.
-// import Ingestion from "./pages/Ingestion.jsx";
-// import DataTable from "./pages/DataTable.jsx";
-// import GraphView from "./pages/GraphView.jsx";
-// import Summary from "./pages/Summary.jsx";
 
 
 export default function App() {
 
-  const [isAuthenticated, setIsAuthenticated] =
-    useState(
-      !!localStorage.getItem("access_token")
-    );
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    !!localStorage.getItem("access_token")
+  );
 
   const [user, setUser] = useState(null);
 
@@ -35,17 +29,15 @@ export default function App() {
 
 
   // =====================================================
-  // AUTHENTIFICATION RÉUSSIE
+  // AUTHENTIFICATION
   // =====================================================
 
   const handleAuth = () => {
-
     setIsAuthenticated(true);
 
     navigate("/app", {
       replace: true,
     });
-
   };
 
 
@@ -63,16 +55,11 @@ export default function App() {
     navigate("/", {
       replace: true,
     });
-
   };
 
 
   // =====================================================
   // UTILISATEUR CONNECTÉ
-  // Récupère /auth/me une fois authentifié. Si le token
-  // n'est plus valide (expiré, révoqué...), on déconnecte
-  // proprement au lieu de rester bloqué avec un état
-  // "authentifié" qui ne l'est plus vraiment.
   // =====================================================
 
   useEffect(() => {
@@ -86,10 +73,18 @@ export default function App() {
 
     api.getCurrentUser()
       .then((u) => {
-        if (!cancelled) setUser(u);
+
+        if (!cancelled) {
+          setUser(u);
+        }
+
       })
       .catch(() => {
-        if (!cancelled) handleLogout();
+
+        if (!cancelled) {
+          handleLogout();
+        }
+
       });
 
     return () => {
@@ -104,7 +99,7 @@ export default function App() {
     <Routes>
 
       {/* =================================================
-          LANDING PAGE PUBLIQUE
+          LANDING
       ================================================= */}
 
       <Route
@@ -114,7 +109,7 @@ export default function App() {
 
 
       {/* =================================================
-          LOGIN CLASSIQUE
+          LOGIN
       ================================================= */}
 
       <Route
@@ -145,9 +140,7 @@ export default function App() {
 
 
       {/* =================================================
-          CALLBACK GOOGLE
-          IMPORTANT :
-          cette route doit être traitée AVANT le catch-all
+          GOOGLE CALLBACK
       ================================================= */}
 
       <Route
@@ -161,7 +154,7 @@ export default function App() {
 
 
       {/* =================================================
-          APPLICATION PROTÉGÉE (sous /app)
+          APPLICATION
       ================================================= */}
 
       <Route
@@ -181,6 +174,12 @@ export default function App() {
         }
       />
 
+
+      {/* =================================================
+          EXPLORER DATASET
+      ================================================= */}
+
+      
 
       {/* =================================================
           FALLBACK
