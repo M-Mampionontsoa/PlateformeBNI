@@ -1,0 +1,12 @@
+node_modules/
+venv/
+.venv/
+vendor/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+.next/
+dist/
+build/
