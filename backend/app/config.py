@@ -6,20 +6,17 @@ load_dotenv()
 
 class Settings:
     # =========================================================
-    # Email / SMTP (optionnel - necessaire uniquement pour l'envoi
-    # reel des emails de verification de compte)
+    # Brevo (emails transactionnels via l'API REST)
     # =========================================================
-    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
-    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
-    MAIL_FROM: str = os.getenv("MAIL_FROM", "no-reply@example.mg")
+    # La clé reste côté backend/Dokku uniquement : jamais dans le frontend.
+    BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "")
+    BREVO_API_URL: str = os.getenv("BREVO_API_URL", "https://api.brevo.com/v3").rstrip("/")
+    MAIL_FROM: str = os.getenv("MAIL_FROM", "no-reply@data-share.manidina.me")
     MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "Plateforme BNI")
-    MAIL_PORT: int = int(os.getenv("MAIL_PORT", 587))
-    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "")
 
-    # Actif seulement si les identifiants SMTP sont fournis. Si ce n'est
-    # pas le cas (dev local, demo), l'application demarre normalement et
-    # l'envoi d'email de verification est simplement desactive.
-    MAIL_ENABLED: bool = bool(MAIL_USERNAME and MAIL_PASSWORD and MAIL_SERVER)
+    # Le sender doit être créé et vérifié dans Brevo avant l'envoi.
+    # En dev local sans clé, l'inscription reste non-bloquante (lien loggé).
+    MAIL_ENABLED: bool = bool(BREVO_API_KEY and MAIL_FROM)
 
     # =========================================================
     # Frontend

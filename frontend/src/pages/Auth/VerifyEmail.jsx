@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { API_ORIGIN } from "../../api";
 import "../styles/auth.css";
 
 export default function VerifyEmail() {
@@ -15,7 +16,7 @@ export default function VerifyEmail() {
       return;
     }
 
-    fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
+    fetch(`${API_ORIGIN}/api/auth/verify-email?token=${encodeURIComponent(token)}`)
       .then(async (res) => {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));

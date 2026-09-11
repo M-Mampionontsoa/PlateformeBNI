@@ -29,6 +29,9 @@ import {
 import { api } from "../api.js";
 import "./styles/explorerDataset.css";
 
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 
 const EMPTY_TABS = [
   "Données",
@@ -228,6 +231,21 @@ export default function ExplorerDataset() {
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
 
+  const COLUMN_TYPES = [
+    { label: "Numérique", count: 14, percent: "50%" },
+    { label: "Catégorie", count: 8, percent: "28.6%" },
+    { label: "Date", count: 4, percent: "14.3%" },
+    { label: "Texte", count: 2, percent: "7.1%" },
+  ];
+
+  const MISSING_VALUES = [
+    { column: "customer_id", percent: "0.5%" },
+    { column: "discount", percent: "1.2%" },
+    { column: "region", percent: "0.3%" },
+    { column: "cost", percent: "2.1%" },
+    { column: "autres colonnes", percent: "0.8%" },
+  ];
+
   /*
    * =======================================================
    * DONNÉES RÉELLES
@@ -369,6 +387,205 @@ export default function ExplorerDataset() {
     dataset?.uploaded_at ||
     "2023-10-24";
 
+  // Telechargement pdf-------------------------------------------------
+
+  function handleDownloadPdf() {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 14;
+    let y;
+
+    // ---- En-tête ----
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 30, "F");
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(name, marginX, 14);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(
+      `Données financières  •  Ajouté le ${formatDate(createdAt)}  •  par ${owner}`,
+      marginX,
+      21,
+    );
+
+    doc.setFillColor(13, 148, 136);
+    doc.roundedRect(pageWidth - marginX - 26, 9, 26, 8, 2, 2, "F");
+    doc.setFontSize(8);
+    doc.text("Published", pageWidth - marginX - 13, 14.5, { align: "center" });
+
+    y = 38;
+
+    // ---- Description ----
+    doc.setTextColor(51, 65, 85);
+    doc.setFontSize(10);
+    const descLines = doc.splitTextToSize(description, pageWidth - marginX * 2);
+    doc.text(descLines, marginX, y);
+    y += descLines.length * 5 + 4;
+
+    // ---- Tags ----
+    let tagX = marginX;
+    ["finance", "revenue", "forecast", "+2"].forEach((tag) => {
+      const tagWidth = doc.getTextWidth(tag) + 6;
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(tagX, y - 4, tagWidth, 6, 1.5, 1.5, "F");
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(8);
+      doc.text(tag, tagX + 3, y);
+      tagX += tagWidth + 3;
+    });
+    y += 10;
+
+    // ---- Infos générales (2 colonnes) ----
+    const infoLeft = [
+      ["Type", fileType],
+      ["Taille", dataset?.size || "42.5 MB"],
+      ["Lignes", formatNumber(rows)],
+      ["Colonnes", String(columns)],
+    ];
+    const infoRight = [
+      ["Propriétaire", owner],
+      ["Catégorie", category],
+      ["Dernière mise à jour", `${formatDate(lastUpdated)} à 10:00`],
+      ["Statut", "Published"],
+    ];
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(marginX, y, pageWidth - marginX * 2, 30, 2, 2, "FD");
+
+    const colWidth = (pageWidth - marginX * 2) / 2;
+    infoLeft.forEach(([label, value], i) => {
+      const rowY = y + 6 + i * 6.5;
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(8);
+      doc.text(label, marginX + 4, rowY);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(9);
+      doc.text(String(value), marginX + 40, rowY);
+    });
+    infoRight.forEach(([label, value], i) => {
+      const rowY = y + 6 + i * 6.5;
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(8);
+      doc.text(label, marginX + colWidth + 4, rowY);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(9);
+      doc.text(String(value), marginX + colWidth + 45, rowY);
+    });
+
+    y += 38;
+
+    // ---- Aperçu des données ----
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Aperçu des données", marginX, y);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      head: [previewColumns],
+      body: previewRows.map((row) =>
+        previewColumns.map((column) =>
+          row[column] === null || row[column] === undefined
+            ? "—"
+            : String(row[column]),
+        ),
+      ),
+      styles: { fontSize: 8, textColor: [51, 65, 85], cellPadding: 2 },
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    y = doc.lastAutoTable.finalY + 12;
+
+    // ---- Statistiques générales ----
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Statistiques générales", marginX, y);
+    doc.setFont("helvetica", "normal");
+    y += 6;
+
+    const stats = [
+      { label: "Lignes", value: formatNumber(rows) },
+      { label: "Colonnes", value: String(columns) },
+      { label: "Valeurs manquantes", value: "2.1%" },
+      { label: "Taille", value: dataset?.size || "42.5 MB" },
+    ];
+
+    const boxWidth = (pageWidth - marginX * 2 - 9) / 4;
+    stats.forEach((stat, i) => {
+      const boxX = marginX + i * (boxWidth + 3);
+      doc.setDrawColor(226, 232, 240);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(boxX, y, boxWidth, 18, 2, 2, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(12);
+      doc.text(stat.value, boxX + 4, y + 8);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(7.5);
+      doc.text(stat.label, boxX + 4, y + 14);
+    });
+
+    y += 26;
+
+    // ---- Colonnes par type ----
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Colonnes par type", marginX, y);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+
+    const halfWidth = (pageWidth - marginX * 2) / 2 - 3;
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      tableWidth: halfWidth,
+      head: [["Type", "Colonnes", "Part"]],
+      body: COLUMN_TYPES.map((t) => [t.label, String(t.count), t.percent]),
+      styles: { fontSize: 8, textColor: [51, 65, 85], cellPadding: 2 },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [51, 65, 85],
+        fontStyle: "bold",
+      },
+    });
+
+    // ---- Valeurs manquantes ----
+    autoTable(doc, {
+      startY: y,
+      margin: { left: marginX + halfWidth + 6, right: marginX },
+      tableWidth: halfWidth,
+      head: [["Colonne", "Manquant"]],
+      body: MISSING_VALUES.map((m) => [m.column, m.percent]),
+      styles: { fontSize: 8, textColor: [51, 65, 85], cellPadding: 2 },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [51, 65, 85],
+        fontStyle: "bold",
+      },
+    });
+
+    doc.save(`${name}.pdf`);
+  }
+
   return (
     <div className="ed-page">
 
@@ -489,7 +706,7 @@ export default function ExplorerDataset() {
 
           <div className="ed-header-buttons">
 
-            <button className="ed-action-button">
+            <button className="ed-action-button" onClick={handleDownloadPdf}>
               <FiDownload />
               Télécharger
             </button>

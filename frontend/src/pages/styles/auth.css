@@ -258,6 +258,16 @@
   color: var(--auth-error);
 }
 
+.auth-notice {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #216e5a;
+  background: #eaf8f2;
+  border: 1px solid #b7e5d1;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
 .auth-remember {
   display: flex;
   align-items: center;
