@@ -160,10 +160,10 @@ function getColumns(dataset, data) {
  * lorsque l'API ne renvoie aucune donnée.
  */
 function buildPreviewRows(data) {
-  // DONNÉES RÉELLES
+  // DONNÉES RÉELLES : toutes les lignes de la page courante
   if (data?.rows?.length && data?.columns?.length) {
-    return data.rows.slice(0, 5).map((row) =>
-      data.columns.slice(0, 6).reduce((acc, column) => {
+    return data.rows.map((row) =>
+      data.columns.slice(0, 8).reduce((acc, column) => {
         acc[column] = row[column];
         return acc;
       }, {})
@@ -231,6 +231,12 @@ export default function ExplorerDataset() {
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
 
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalPages = data?.total
+    ? Math.max(1, Math.ceil(data.total / PAGE_SIZE))
+    : 1;
+
   const COLUMN_TYPES = [
     { label: "Numérique", count: 14, percent: "50%" },
     { label: "Catégorie", count: 8, percent: "28.6%" },
@@ -263,10 +269,7 @@ export default function ExplorerDataset() {
       try {
         const datasetId = Number(id);
 
-        const [datasets, datasetData] = await Promise.all([
-          api.listDatasets(),
-          api.getData(datasetId, 1, 5),
-        ]);
+        const datasets = await api.listDatasets();
 
         if (!mounted) return;
 
@@ -276,13 +279,9 @@ export default function ExplorerDataset() {
 
         // DONNÉES RÉELLES
         setDataset(found || datasets[0] || null);
-
-        // DONNÉES RÉELLES
-        setData(datasetData || null);
       } catch {
         if (mounted) {
           setDataset(null);
-          setData(null);
         }
       } finally {
         if (mounted) setLoading(false);
@@ -295,6 +294,39 @@ export default function ExplorerDataset() {
       mounted = false;
     };
   }, [id]);
+
+  // Réinitialiser la pagination quand on change de dataset
+  useEffect(() => {
+    setPage(1);
+  }, [id]);
+
+  // Charger la page courante des lignes
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadData() {
+      try {
+        const datasetId = Number(id);
+
+        const datasetData = await api.getData(datasetId, page, PAGE_SIZE);
+
+        if (!mounted) return;
+
+        // DONNÉES RÉELLES
+        setData(datasetData || null);
+      } catch {
+        if (mounted) {
+          setData(null);
+        }
+      }
+    }
+
+    loadData();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id, page]);
 
   /*
    * DONNÉES RÉELLES SI L'API LES FOURNIT.
@@ -352,7 +384,7 @@ export default function ExplorerDataset() {
    */
   const previewColumns = useMemo(() => {
     if (data?.columns?.length) {
-      return data.columns.slice(0, 6);
+      return data.columns.slice(0, 8);
     }
 
     return [
@@ -990,6 +1022,38 @@ export default function ExplorerDataset() {
 
                   </div>
 
+                )}
+
+                {totalPages > 1 && (
+                  <div className="ed-pagination">
+
+                    <button
+                      className="ed-page-btn"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page <= 1}
+                      aria-label="Page précédente"
+                    >
+                      ‹ Précédent
+                    </button>
+
+                    <span className="ed-page-info">
+                      Page <strong>{page}</strong> sur{" "}
+                      <strong>{totalPages}</strong> —{" "}
+                      {(data?.total ?? 0).toLocaleString("fr-FR")} lignes
+                    </span>
+
+                    <button
+                      className="ed-page-btn"
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={page >= totalPages}
+                      aria-label="Page suivante"
+                    >
+                      Suivant ›
+                    </button>
+
+                  </div>
                 )}
 
                 <button className="ed-outline-link">

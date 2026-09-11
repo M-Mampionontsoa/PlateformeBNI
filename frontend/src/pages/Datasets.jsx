@@ -30,6 +30,8 @@ const getStatus = (ds) =>
 const getDescription = (ds) =>
   ds.description || ds.summary || "Jeu de données";
 
+const PAGE_SIZE = 10;
+
 export default function Datasets() {
   const [jobs, setJobs] = useState([]);
   const [dragging, setDragging] = useState(false);
@@ -37,6 +39,9 @@ export default function Datasets() {
   const pollRef = useRef(null);
 
   const [datasets, setDatasets] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [feedback, setFeedback] = useState(null); // {kind: "success"|"error", text}
+  const [page, setPage] = useState(1);
 
   // Filtres
   const [search, setSearch] = useState("");
@@ -86,6 +91,19 @@ export default function Datasets() {
 
     if (wasRunning && !stillRunning) {
       refreshDatasets();
+
+      const last = jobs[0];
+      if (last?.status === "completed") {
+        setFeedback({
+          kind: "success",
+          text: `Dataset « ${last.filename} » importé avec succès.`,
+        });
+      } else if (last?.status === "failed") {
+        setFeedback({
+          kind: "error",
+          text: `Import de « ${last.filename} » échoué : ${last.message || "erreur inconnue"}`,
+        });
+      }
     }
 
     prevJobsRef.current = jobs;
@@ -96,11 +114,21 @@ export default function Datasets() {
 
     if (!file) return;
 
+    setUploading(true);
+    setFeedback(null);
+
     try {
       await api.uploadFile(file);
-      refreshJobs();
+      setFeedback({
+        kind: "info",
+        text: `« ${file.name} » reçu, traitement en cours…`,
+      });
+      await refreshJobs();
     } catch (err) {
-      alert(err.message);
+      setFeedback({ kind: "error", text: err.message });
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = "";
     }
   };
 
@@ -185,12 +213,35 @@ export default function Datasets() {
     Boolean(categoryFilter) ||
     Boolean(statusFilter);
 
+  // Revenir à la première page dès que les critères changent
+  useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter, ownerFilter, categoryFilter, statusFilter]);
+
+  /*
+   * ==========================================================
+   * PAGINATION DE LA TABLE
+   * ==========================================================
+   */
+
+  const totalPages = Math.max(1, Math.ceil(filteredDatasets.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedDatasets = filteredDatasets.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
+  );
+
   const resetFilters = () => {
     setSearch("");
     setTypeFilter("");
     setOwnerFilter("");
     setCategoryFilter("");
     setStatusFilter("");
+    setPage(1);
+  };
+
+  const goToPage = (p) => {
+    setPage(Math.min(Math.max(1, p), totalPages));
   };
 
   return (
@@ -220,17 +271,19 @@ export default function Datasets() {
           <button
             className="datasets-btn datasets-btn-import"
             onClick={() => fileInput.current?.click()}
+            disabled={uploading}
           >
             <span className="datasets-btn-icon">↥</span>
-            Importer un dataset
+            {uploading ? "Import en cours…" : "Importer un dataset"}
           </button>
 
           <button
             className="datasets-btn datasets-btn-new"
             onClick={() => fileInput.current?.click()}
+            disabled={uploading}
           >
             <span className="datasets-btn-plus">+</span>
-            Nouveau dataset
+            {uploading ? "Veuillez patienter…" : "Nouveau dataset"}
           </button>
 
         </div>
@@ -242,8 +295,81 @@ export default function Datasets() {
         type="file"
         accept=".csv"
         hidden
+        disabled={uploading}
         onChange={(e) => handleFiles(e.target.files)}
       />
+
+      {/* =====================================================
+          FEEDBACK (succès / erreur / info)
+          ===================================================== */}
+
+      {feedback && (
+        <div className={`datasets-feedback datasets-feedback-${feedback.kind}`}>
+          <span className="datasets-feedback-icon">
+            {feedback.kind === "success"
+              ? "✓"
+              : feedback.kind === "error"
+              ? "✕"
+              : "↺"}
+          </span>
+
+          <span className="datasets-feedback-text">{feedback.text}</span>
+
+          <button
+            className="datasets-feedback-close"
+            onClick={() => setFeedback(null)}
+            aria-label="Fermer"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* =====================================================
+          SUIVI DES IMPORTS (JOBS)
+          ===================================================== */}
+
+      {jobs.length > 0 && (
+        <div className="datasets-jobs">
+
+          {jobs.slice(0, 3).map((job) => {
+            const running = !["completed", "failed"].includes(job.status);
+
+            return (
+              <div
+                key={job.id}
+                className={`datasets-job datasets-job-${job.status}`}
+              >
+
+                <span
+                  className={`datasets-job-status ${
+                    running ? "datasets-job-spin" : ""
+                  }`}
+                >
+                  {running ? "⟳" : job.status === "completed" ? "✓" : "✕"}
+                </span>
+
+                <div className="datasets-job-info">
+                  <div className="datasets-job-name">{job.filename}</div>
+
+                  <div className="datasets-job-message">
+                    {STATUS_LABEL[job.status] || job.status}
+                    {job.message ? ` — ${job.message}` : ""}
+                  </div>
+                </div>
+
+                {running && job.progress != null && (
+                  <span className="datasets-job-progress">
+                    {job.progress}%
+                  </span>
+                )}
+
+              </div>
+            );
+          })}
+
+        </div>
+      )}
 
       {/* =====================================================
           FILTER BAR
@@ -513,7 +639,7 @@ export default function Datasets() {
 
         ) : (
 
-          filteredDatasets.map((ds, index) => {
+          pagedDatasets.map((ds, index) => {
 
             const type = getDatasetType(ds);
             const owner = getOwner(ds);
@@ -656,15 +782,52 @@ export default function Datasets() {
           <span className="datasets-results">
             Affichage de{" "}
             <strong>
-              {filteredDatasets.length}
+              {(safePage - 1) * PAGE_SIZE + 1}–
+              {Math.min(safePage * PAGE_SIZE, filteredDatasets.length)}
             </strong>{" "}
             sur{" "}
             <strong>
-              {datasets.length}
+              {filteredDatasets.length}
             </strong>{" "}
             dataset
-            {datasets.length > 1 ? "s" : ""}
+            {filteredDatasets.length > 1 ? "s" : ""}
           </span>
+
+          {totalPages > 1 && (
+            <div className="datasets-pagination">
+
+              <button
+                className="datasets-page-btn"
+                onClick={() => goToPage(safePage - 1)}
+                disabled={safePage <= 1}
+                aria-label="Page précédente"
+              >
+                ‹
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  className={`datasets-page-btn ${
+                    p === safePage ? "datasets-page-active" : ""
+                  }`}
+                  onClick={() => goToPage(p)}
+                >
+                  {p}
+                </button>
+              ))}
+
+              <button
+                className="datasets-page-btn"
+                onClick={() => goToPage(safePage + 1)}
+                disabled={safePage >= totalPages}
+                aria-label="Page suivante"
+              >
+                ›
+              </button>
+
+            </div>
+          )}
 
         </div>
 

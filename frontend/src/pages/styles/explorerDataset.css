@@ -1343,3 +1343,45 @@
     justify-content: center;
   }
 }
+/* ==========================================================
+   PAGINATION DE L'APERÇU
+   ========================================================== */
+
+.ed-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.ed-page-btn {
+  padding: 7px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.ed-page-btn:hover:not(:disabled) {
+  border-color: #244ed5;
+  color: #244ed5;
+}
+
+.ed-page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ed-page-info {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.ed-page-info strong {
+  color: #1a1a2e;
+}
