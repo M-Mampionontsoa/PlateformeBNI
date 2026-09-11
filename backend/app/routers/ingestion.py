@@ -1,8 +1,11 @@
 import io
 import time
+
 import pandas as pd
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, BackgroundTasks
+from sqlalchemy import insert
 from sqlalchemy.orm import Session
+
 from ..auth import get_current_user
 from ..database import get_db
 from .. import models, schemas
@@ -13,9 +16,18 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
+# Nombre de lignes inserees et validees par transaction.
+# Un chunk trop gros monopolise la memoire et retarde l'affichage
+# de la progression ; trop petit, il multiplie les allers-retours MySQL.
+CHUNK_SIZE = 5000
+
 
 def _run_ingestion(job_id: int, content: bytes, filename: str, db_factory):
-    """Simule un pipeline d'ingestion multi-etapes (parsing -> validation -> stockage)."""
+    """Pipeline d'ingestion multi-etapes (parsing -> validation -> stockage).
+
+    Les lignes sont ecrites par chunks commits separement, pour que la
+    progression soit visible et qu'un crash ne perde pas tout le travail.
+    """
     db = db_factory()
     try:
         job = db.query(models.IngestionJob).get(job_id)
@@ -62,17 +74,47 @@ def _run_ingestion(job_id: int, content: bytes, filename: str, db_factory):
         time.sleep(0.4)
 
         df_clean = df.where(pd.notnull(df), None)
-        rows = [
-            models.DatasetRow(dataset_id=dataset.id, row_index=i, data=row)
-            for i, row in enumerate(df_clean.to_dict(orient="records"))
-        ]
-        db.bulk_save_objects(rows)
-        db.commit()
+        records = df_clean.to_dict(orient="records")
+        total = len(records)
+
+        try:
+            for start in range(0, total, CHUNK_SIZE):
+                chunk = [
+                    {
+                        "dataset_id": dataset.id,
+                        "row_index": start + offset,
+                        "data": row,
+                    }
+                    for offset, row in enumerate(records[start:start + CHUNK_SIZE])
+                ]
+                db.execute(insert(models.DatasetRow), chunk)
+                db.commit()
+
+                done = min(start + CHUNK_SIZE, total)
+                # 70 -> 90 pendant l'ecriture, 100 apres validation finale
+                job.progress = 70 + int(20 * done / total)
+                job.message = f"Ecriture des lignes en base... {done}/{total}"
+                db.commit()
+        except Exception as exc:
+            db.rollback()
+            job.status = models.IngestionStatus.FAILED
+            job.message = f"Erreur pendant l'ecriture: {exc}"
+            db.commit()
+            db.delete(dataset)
+            db.commit()
+            return
 
         job.progress = 100
         job.status = models.IngestionStatus.COMPLETED
         job.message = "Ingestion terminee."
         db.commit()
+    except Exception as exc:
+        db.rollback()
+        job = db.query(models.IngestionJob).get(job_id)
+        if job:
+            job.status = models.IngestionStatus.FAILED
+            job.message = f"Erreur inattendue: {exc}"
+            db.commit()
     finally:
         db.close()
 
