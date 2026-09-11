@@ -30,7 +30,7 @@ export default function Hero() {
           </h1>
 
           <p className="lp-hero__desc">
-            Entrepôt centralise vos données clients, internes et externes, les
+            Angona centralise vos données clients, internes et externes, les
             transforme en pipeline fiable, et alimente des modèles de scoring
             et de détection de fraude prêts pour la production.
           </p>

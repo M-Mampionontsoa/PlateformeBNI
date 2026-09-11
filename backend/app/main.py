@@ -9,7 +9,7 @@ from .config import settings
 
 
 app = FastAPI(
-    title="Data Warehouse MVP",
+    title="Angona",
     version="0.1.0",
 )
 

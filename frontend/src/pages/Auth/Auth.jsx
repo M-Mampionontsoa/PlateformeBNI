@@ -191,7 +191,7 @@ export default function Auth({ onAuth }) {
                 <IconMail />
                 <input
                   type="email"
-                  placeholder="nom@bni.mg"
+                  placeholder="nom@angona.mg"
                   value={form.email}
                   onChange={update("email")}
                   autoComplete="email"

@@ -25,8 +25,8 @@ export default function Navbar() {
         <a href="#top" className="lp-brand">
           <span className="lp-brand__mark" aria-hidden="true" />
           <span className="lp-brand__text">
-            Entrepôt
-            <span className="lp-brand__sub">Data Warehouse platform</span>
+            Angona
+            <span className="lp-brand__sub">Plateforme de données</span>
           </span>
         </a>
 

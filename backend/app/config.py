@@ -12,7 +12,7 @@ class Settings:
     BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "")
     BREVO_API_URL: str = os.getenv("BREVO_API_URL", "https://api.brevo.com/v3").rstrip("/")
     MAIL_FROM: str = os.getenv("MAIL_FROM", "no-reply@data-share.manidina.me")
-    MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "Plateforme BNI")
+    MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "Angona")
 
     # Le sender doit être créé et vérifié dans Brevo avant l'envoi.
     # En dev local sans clé, l'inscription reste non-bloquante (lien loggé).

@@ -136,8 +136,8 @@ export default function Sidebar({ onLogout, user }) {
           <BrandIcon />
         </span>
         <span className="ds-brand__text">
-          Entrepôt
-          <span>data warehouse mvp</span>
+          Angona
+          <span>plateforme de données</span>
         </span>
       </div>
 
