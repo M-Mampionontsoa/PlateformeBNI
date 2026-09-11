@@ -332,7 +332,6 @@ local, puis reconstruis l'image : `docker compose build backend`.
 - Implémenter les onglets supplémentaires de l'explorateur dataset :
   Données, Relations, Statistiques, Qualité, Versions, Provenance et Accès.
   
-- Ajouter le parcours de réinitialisation du mot de passe.
 - Connecter l'import Databricks à un endpoint API et un parcours frontend.
 
 - Ajouter une suite de tests du projet.
