@@ -82,3 +82,62 @@ async def send_verification_email(to_email: str, full_name: str, token: str) -> 
     except Exception as exc:
         # On ne bloque jamais l'inscription si l'envoi d'email echoue.
         print(f"[email] Echec de l'envoi de l'email de verification a {to_email}: {exc}")
+
+
+## verification d'identité avant la reinitialisation de mdp
+
+def _password_reset_email_html(full_name: str, reset_link: str) -> str:
+    return f"""
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1a1a2e;">Réinitialisation de votre mot de passe</h2>
+        <p>Bonjour {full_name},</p>
+        <p>
+            Vous avez demandé à réinitialiser le mot de passe de votre compte
+            sur la Plateforme BNI, via votre compte Google.
+        </p>
+        <p>Pour confirmer que vous êtes bien le propriétaire de cette adresse, cliquez ci-dessous :</p>
+        <p style="text-align: center; margin: 32px 0;">
+            <a href="{reset_link}"
+               style="background-color: #1a1a2e; color: #ffffff; padding: 12px 28px;
+                      text-decoration: none; border-radius: 6px; display: inline-block;">
+                Réinitialiser mon mot de passe
+            </a>
+        </p>
+        <p style="color: #666; font-size: 14px;">Ce lien expirera dans 30 minutes.</p>
+        <p style="color: #666; font-size: 14px;">
+            Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email —
+            votre mot de passe restera inchangé.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+        <p style="color: #999; font-size: 12px;">Cordialement,<br/>L'équipe Plateforme BNI</p>
+    </div>
+    """
+
+
+async def send_password_reset_email(to_email: str, full_name: str, token: str) -> None:
+    """
+    Envoie l'email de confirmation pour la réinitialisation de mot de passe.
+    Meme logique que send_verification_email : si le SMTP n'est pas configure,
+    on se contente de logger le lien (dev local / demo).
+    """
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+
+    mailer = _get_mailer()
+    if mailer is None:
+        print(f"[email] SMTP non configure - lien de reinitialisation pour {to_email}: {reset_link}")
+        return
+
+    from fastapi_mail import MessageSchema, MessageType
+
+    message = MessageSchema(
+        subject="Réinitialisation de votre mot de passe",
+        recipients=[to_email],
+        body=_password_reset_email_html(full_name, reset_link),
+        subtype=MessageType.html,
+    )
+
+    try:
+        await mailer.send_message(message)
+    except Exception as exc:
+        print(f"[email] Echec de l'envoi de l'email de reinitialisation a {to_email}: {exc}")
+

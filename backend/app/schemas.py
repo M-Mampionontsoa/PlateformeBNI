@@ -99,3 +99,17 @@ class UserOut(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Le mot de passe est trop long (72 octets max)")
+        return v

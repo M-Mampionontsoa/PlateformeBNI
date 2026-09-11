@@ -78,7 +78,7 @@ class User(Base):
         nullable=True,
         index=True
     )
-
+    
     oauth_provider = Column(
         String(50),
         nullable=True

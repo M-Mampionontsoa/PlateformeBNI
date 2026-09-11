@@ -50,6 +50,13 @@ export const api = {
       body: JSON.stringify({ full_name, email, password }),
     }),
 
+  resetPassword: (token, new_password) =>
+    request("/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, new_password }),
+    }),
+
   login: async (email, password, remember = false) => {
     const formData = new URLSearchParams();
     formData.append("username", email);

@@ -116,17 +116,6 @@ function IconGoogle() {
   );
 }
 
-function IconMicrosoft() {
-  return (
-    <svg viewBox="0 0 18 18" width="16" height="16">
-      <rect x="1" y="1" width="7.5" height="7.5" fill="#F35325" />
-      <rect x="9.5" y="1" width="7.5" height="7.5" fill="#81BC06" />
-      <rect x="1" y="9.5" width="7.5" height="7.5" fill="#05A6F0" />
-      <rect x="9.5" y="9.5" width="7.5" height="7.5" fill="#FFBA08" />
-    </svg>
-  );
-}
-
 export default function Auth({ onAuth }) {
   const [tab, setTab] = useState("signin");
   const [form, setForm] = useState({
@@ -282,7 +271,10 @@ export default function Auth({ onAuth }) {
               <span className="auth-label-row">
                 <span className="auth-label">Mot de passe</span>
                 {tab === "signin" && (
-                  <a className="auth-link" href="#forgot">
+                  <a
+                    className="auth-link"
+                    href={`${API_ORIGIN}/api/auth/google/login?intent=reset`}
+                  >
                     Mot de passe oublié ?
                   </a>
                 )}
@@ -380,15 +372,6 @@ export default function Auth({ onAuth }) {
               }}
             >
               <IconGoogle /> Google
-            </button>
-            <button
-              type="button"
-              className="auth-social-btn"
-              onClick={() => {
-                window.location.href = `${API_ORIGIN}/api/auth/microsoft/login`;
-              }}
-            >
-              <IconMicrosoft /> Microsoft
             </button>
           </div>
 

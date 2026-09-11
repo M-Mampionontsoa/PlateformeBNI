@@ -1,10 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Routes,
-  Route,
-  Navigate,
-  useNavigate,
-} from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 import { api } from "./api.js";
 
@@ -12,21 +7,19 @@ import Landing from "./pages/Landing/Landing.jsx";
 import Auth from "./pages/Auth/Auth.jsx";
 import GoogleCallback from "./pages/Auth/GoogleCallback.jsx";
 import VerifyEmail from "./pages/Auth/VerifyEmail.jsx";
+import ResetPassword from "./pages/Auth/ResetPassword.jsx";
+import CheckEmail from "./pages/Auth/CheckEmail.jsx";
 
 import Shell from "./layout/Shell.jsx";
 
-
-
 export default function App() {
-
   const [isAuthenticated, setIsAuthenticated] = useState(
-    !!localStorage.getItem("access_token")
+    !!localStorage.getItem("access_token"),
   );
 
   const [user, setUser] = useState(null);
 
   const navigate = useNavigate();
-
 
   // =====================================================
   // AUTHENTIFICATION
@@ -40,13 +33,11 @@ export default function App() {
     });
   };
 
-
   // =====================================================
   // DÉCONNEXION
   // =====================================================
 
   const handleLogout = () => {
-
     localStorage.removeItem("access_token");
 
     setIsAuthenticated(false);
@@ -57,13 +48,11 @@ export default function App() {
     });
   };
 
-
   // =====================================================
   // UTILISATEUR CONNECTÉ
   // =====================================================
 
   useEffect(() => {
-
     if (!isAuthenticated) {
       setUser(null);
       return;
@@ -71,42 +60,31 @@ export default function App() {
 
     let cancelled = false;
 
-    api.getCurrentUser()
+    api
+      .getCurrentUser()
       .then((u) => {
-
         if (!cancelled) {
           setUser(u);
         }
-
       })
       .catch(() => {
-
         if (!cancelled) {
           handleLogout();
         }
-
       });
 
     return () => {
       cancelled = true;
     };
-
   }, [isAuthenticated]);
 
-
   return (
-
     <Routes>
-
       {/* =================================================
           LANDING
       ================================================= */}
 
-      <Route
-        path="/"
-        element={<Landing />}
-      />
-
+      <Route path="/" element={<Landing />} />
 
       {/* =================================================
           LOGIN
@@ -116,28 +94,29 @@ export default function App() {
         path="/login"
         element={
           isAuthenticated ? (
-            <Navigate
-              to="/app"
-              replace
-            />
+            <Navigate to="/app" replace />
           ) : (
-            <Auth
-              onAuth={handleAuth}
-            />
+            <Auth onAuth={handleAuth} />
           )
         }
       />
+      {/* =================================================
+          RESET PASSWD
+      ================================================= */}
 
+      <Route path="/reset-password" element={<ResetPassword />} />
+
+      {/* =================================================
+          VERIFICATION MAIL
+      ================================================= */}
+
+      <Route path="/check-email" element={<CheckEmail />} />
 
       {/* =================================================
           VERIFICATION EMAIL
       ================================================= */}
 
-      <Route
-        path="/verify-email"
-        element={<VerifyEmail />}
-      />
-
+      <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* =================================================
           GOOGLE CALLBACK
@@ -145,13 +124,8 @@ export default function App() {
 
       <Route
         path="/auth/google/callback"
-        element={
-          <GoogleCallback
-            onAuth={handleAuth}
-          />
-        }
+        element={<GoogleCallback onAuth={handleAuth} />}
       />
-
 
       {/* =================================================
           APPLICATION
@@ -161,41 +135,22 @@ export default function App() {
         path="/app/*"
         element={
           isAuthenticated ? (
-            <Shell
-              onLogout={handleLogout}
-              user={user}
-            />
+            <Shell onLogout={handleLogout} user={user} />
           ) : (
-            <Navigate
-              to="/login"
-              replace
-            />
+            <Navigate to="/login" replace />
           )
         }
       />
-
 
       {/* =================================================
           EXPLORER DATASET
       ================================================= */}
 
-      
-
       {/* =================================================
           FALLBACK
       ================================================= */}
 
-      <Route
-        path="*"
-        element={
-          <Navigate
-            to="/"
-            replace
-          />
-        }
-      />
-
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-
   );
 }

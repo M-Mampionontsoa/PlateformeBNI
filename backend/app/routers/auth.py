@@ -22,7 +22,7 @@ from ..auth import (
 from ..config import settings
 from ..database import get_db
 from ..services.email_service import send_verification_email
-
+from ..services.email_service import send_verification_email, send_password_reset_email
 
 router = APIRouter(
     prefix="/api/auth",
@@ -201,10 +201,11 @@ def read_me(
 )
 async def google_login(
     request: Request,
+    intent: str = "login",
 ):
     """
-    Étape 1 :
-    Redirige l'utilisateur vers Google.
+    intent="login"  -> connexion/inscription classique (comportement existant)
+    intent="reset"  -> réinitialisation de mot de passe via Google
     """
 
     if not settings.GOOGLE_OAUTH_ENABLED:
@@ -214,6 +215,9 @@ async def google_login(
                 "/login?error=google_not_configured"
             )
         )
+
+    # Mémorisé côté serveur (session), lu au retour dans google_callback
+    request.session["oauth_intent"] = intent
 
     try:
         return await oauth.google.authorize_redirect(
@@ -235,16 +239,13 @@ async def google_login(
         )
 
 
-# =========================================================
-# GOOGLE CALLBACK
-# =========================================================
-
 @router.get(
     "/google/callback",
     summary="Callback Google OAuth",
 )
 async def google_callback(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """
@@ -258,6 +259,8 @@ async def google_callback(
       - vérifie le token OpenID Connect
       - récupère userinfo
     """
+
+    intent = request.session.pop("oauth_intent", "login")
 
     # -----------------------------------------------------
     # 1. Échanger le code Google contre le token
@@ -355,6 +358,19 @@ async def google_callback(
         )
 
         # -------------------------------------------------
+        # Réinitialisation de mot de passe : aucun compte
+        # trouvé -> on ne crée rien, on renvoie une erreur.
+        # -------------------------------------------------
+
+        if not user and intent == "reset":
+            return RedirectResponse(
+                url=(
+                    f"{settings.FRONTEND_URL}"
+                    "/login?error=google_reset_no_account"
+                )
+            )
+
+        # -------------------------------------------------
         # Compte classique déjà existant
         # -------------------------------------------------
 
@@ -409,7 +425,30 @@ async def google_callback(
         )
 
     # -----------------------------------------------------
-    # 7. Créer notre JWT
+    # 7a. Intent = reset -> générer un token de réinitialisation,
+    #     l'envoyer par email, et rediriger vers une page
+    #     "vérifiez votre boîte mail" (le token ne transite pas
+    #     directement dans l'URL de redirection Google).
+    # -----------------------------------------------------
+
+    if intent == "reset":
+        raw_token = create_verification_token(
+            db, user.id, purpose="password_reset"
+        )
+
+        background_tasks.add_task(
+            send_password_reset_email, user.email, user.full_name, raw_token
+        )
+
+        return RedirectResponse(
+            url=(
+                f"{settings.FRONTEND_URL}"
+                f"/check-email?email={user.email}"
+            )
+        )
+
+    # -----------------------------------------------------
+    # 7b. Intent = login -> créer notre JWT comme avant
     # -----------------------------------------------------
 
     access_token = create_access_token(
@@ -432,6 +471,34 @@ async def google_callback(
         url=frontend_callback
     )
 
+
+
+
+# =========================================================
+# RÉINITIALISATION DE MOT DE PASSE (via Google)
+# =========================================================
+
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_200_OK,
+    summary="Définit un nouveau mot de passe à partir d'un token de reset",
+)
+def reset_password(
+    payload: schemas.PasswordResetConfirm,
+    db: Session = Depends(get_db),
+):
+    user = consume_verification_token(
+        db, payload.token, purpose="password_reset"
+    )
+
+    user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+
+    return {"detail": "Mot de passe mis à jour avec succès."}
+
+
+
+    
 # =========================================================
 # VERIFICATION D'EMAIL
 # =========================================================

@@ -221,6 +221,7 @@ function buildPreviewRows(data) {
 
 export default function ExplorerDataset() {
   const { id } = useParams();
+  const [shareFeedback, setShareFeedback] = useState("");
 
   const [dataset, setDataset] = useState(null);
   const [data, setData] = useState(null);
@@ -368,6 +369,32 @@ export default function ExplorerDataset() {
     dataset?.createdAt ||
     dataset?.uploaded_at ||
     "2023-10-24";
+
+  // Partager ----------------------------------------------------------
+  function handleShare() {
+    const shareData = {
+      title: name,
+      text: `Découvrez le dataset "${name}" sur Entrepot.`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData).catch((err) => {
+        if (err.name !== "AbortError") {
+          console.error("Erreur de partage :", err);
+        }
+      });
+      return;
+    }
+
+    if (navigator.clipboard) {
+      navigator.clipboard
+        .writeText(shareData.url)
+        .then(() => setShareFeedback("Lien copié !"))
+        .catch(() => setShareFeedback("Impossible de copier le lien"))
+        .finally(() => setTimeout(() => setShareFeedback(""), 2000));
+    }
+  }
 
   // Telechargement pdf-------------------------------------------------
 
@@ -665,15 +692,37 @@ export default function ExplorerDataset() {
               Télécharger
             </button>
 
-            <button className="ed-action-button">
-              <FiShare2 />
-              Partager
-            </button>
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <button className="ed-action-button" onClick={handleShare}>
+                <FiShare2 />
+                Partager
+              </button>
 
-            <button className="ed-access-button">
+              {shareFeedback && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 6px)",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "#0f172a",
+                    color: "#fff",
+                    fontSize: "12px",
+                    padding: "4px 10px",
+                    borderRadius: "6px",
+                    whiteSpace: "nowrap",
+                    zIndex: 10,
+                  }}
+                >
+                  {shareFeedback}
+                </span>
+              )}
+            </div>
+
+            {/* <button className="ed-access-button">
               <FiLock />
               Demander l'accès
-            </button>
+            </button> */}
           </div>
 
           {/* ===================================================
