@@ -1,8 +1,11 @@
 import html
+import logging
 
 import httpx
 
 from ..config import settings
+
+logger = logging.getLogger("email_service")
 
 
 def _verification_email_html(full_name: str, verification_link: str) -> str:
@@ -12,7 +15,7 @@ def _verification_email_html(full_name: str, verification_link: str) -> str:
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e;">Vérifiez votre adresse email</h2>
         <p>Bonjour {safe_name},</p>
-        <p>Merci d'avoir créé votre compte sur la Plateforme BNI.</p>
+        <p>Merci d'avoir créé votre compte sur Angona.</p>
         <p>Pour terminer votre inscription, veuillez confirmer votre adresse email :</p>
         <p style="text-align: center; margin: 32px 0;">
             <a href="{safe_link}"
@@ -26,19 +29,29 @@ def _verification_email_html(full_name: str, verification_link: str) -> str:
             Si vous n'êtes pas à l'origine de cette inscription, vous pouvez ignorer cet email.
         </p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-        <p style="color: #999; font-size: 12px;">Cordialement,<br/>L'équipe Plateforme BNI</p>
+        <p style="color: #999; font-size: 12px;">Cordialement,<br/>L'équipe Angona</p>
     </div>
     """
 
 
 async def send_verification_email(to_email: str, full_name: str, token: str) -> bool:
-    """Envoie l'email de validation via l'API transactionnelle Brevo."""
-    if not settings.MAIL_ENABLED:
-        raise RuntimeError("Brevo n'est pas configuré pour l'envoi d'emails.")
+    """Envoie l'email de validation via l'API transactionnelle Brevo.
 
+    Si Brevo n'est pas configuré ou que l'envoi échoue, le lien de
+    vérification est loggé pour ne pas bloquer l'inscription en dev.
+    """
     verification_link = (
         f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={token}"
     )
+
+    if not settings.MAIL_ENABLED:
+        logger.warning(
+            "[email] Brevo non configuré - lien de vérification pour %s : %s",
+            to_email,
+            verification_link,
+        )
+        return False
+
     payload = {
         "sender": {
             "name": settings.MAIL_FROM_NAME,
@@ -49,19 +62,25 @@ async def send_verification_email(to_email: str, full_name: str, token: str) -> 
         "htmlContent": _verification_email_html(full_name, verification_link),
     }
 
-    async with httpx.AsyncClient(timeout=20.0, trust_env=False) as client:
-        response = await client.post(
-            f"{settings.BREVO_API_URL}/smtp/email",
-            headers={
-                "accept": "application/json",
-                "api-key": settings.BREVO_API_KEY,
-                "content-type": "application/json",
-            },
-            json=payload,
+    try:
+        async with httpx.AsyncClient(timeout=20.0, trust_env=False) as client:
+            response = await client.post(
+                f"{settings.BREVO_API_URL}/smtp/email",
+                headers={
+                    "accept": "application/json",
+                    "api-key": settings.BREVO_API_KEY,
+                    "content-type": "application/json",
+                },
+                json=payload,
+            )
+            response.raise_for_status()
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "[email] Envoi Brevo échoué (%s) - lien de vérification pour %s : %s",
+            exc,
+            to_email,
+            verification_link,
         )
-
-    if response.is_error:
-        print(f"[email] Brevo a répondu HTTP {response.status_code}.")
-        response.raise_for_status()
+        return False
 
     return True

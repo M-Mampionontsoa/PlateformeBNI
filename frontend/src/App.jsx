@@ -6,7 +6,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import { api } from "./api.js";
+import { api, getToken, clearToken } from "./api.js";
 
 import Landing from "./pages/Landing/Landing.jsx";
 import Auth from "./pages/Auth/Auth.jsx";
@@ -20,7 +20,7 @@ import Shell from "./layout/Shell.jsx";
 export default function App() {
 
   const [isAuthenticated, setIsAuthenticated] = useState(
-    !!localStorage.getItem("access_token")
+    !!getToken()
   );
 
   const [user, setUser] = useState(null);
@@ -47,7 +47,7 @@ export default function App() {
 
   const handleLogout = () => {
 
-    localStorage.removeItem("access_token");
+    clearToken();
 
     setIsAuthenticated(false);
     setUser(null);

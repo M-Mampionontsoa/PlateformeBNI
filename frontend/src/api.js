@@ -7,7 +7,7 @@ const BASE = configuredOrigin ? `${API_ORIGIN}/api` : "/api";
 
 const TOKEN_KEY = "access_token";
 
-function getToken() {
+export function getToken() {
   return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
 }
 
@@ -19,7 +19,7 @@ function setToken(token, remember) {
   }
 }
 
-function clearToken() {
+export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
 }
